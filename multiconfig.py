@@ -29,7 +29,12 @@ def wait_for_new_port():
 def get_mcu_id(port_name):
     mcu_id = None
     name = None
-    with serial.Serial(port_name, 115200, timeout=1) as ser:
+    try:
+        ser = serial.Serial(port, 115200, timeout=1)
+    except:
+        print('Cannot open serial port')
+        return None
+    else:
         ser.write(b'#cli\r\n')
         time.sleep(0.5)
         ser.reset_input_buffer()
@@ -44,18 +49,7 @@ def get_mcu_id(port_name):
                 if s.startswith('mcu_id'):
                     mcu_id = s.strip().split()[1]
                     break
-        ser.write(b'get name\r\n')
-        ser.readline()
-        while True:
-            line = ser.readline()
-            if not line:
-                break
-            else:
-                s = line.decode()
-                if s.startswith('name ='):
-                    name = s.strip()[7:]
-                    break
-    return mcu_id, name
+        return mcu_id
 
 
 def open_advanced(filename):
@@ -73,7 +67,6 @@ def open_advanced(filename):
 def load_settings():
     settings = {}
     key = None
-
     f = open_advanced('settings.txt')
     for line in f:
         if not (line.startswith('\t') or line.startswith(' ')):
@@ -127,7 +120,11 @@ def get_line(ser):
 
 
 def upload_diff(diff, port):
-    with serial.Serial(port, 115200, timeout=1) as ser:
+    try:
+        ser = serial.Serial(port, 115200, timeout=1)
+    except:
+        print('Cannot open serial port')
+    else:
         ser.write(b'#cli\r\n')
         time.sleep(1)
         ser.reset_input_buffer()
@@ -135,6 +132,7 @@ def upload_diff(diff, port):
             ser.write(line_out.encode() + b'\r\n')
             get_line(ser)
         get_line_timeout(ser)
+        print()
 
 
 def clear():
@@ -155,9 +153,11 @@ while True:
     print('Device detected: {0}'.format(port))
     print('Press Enter to read Name and ID', end='')
     input()
-    mcu_id, name = get_mcu_id(port)
+    mcu_id = get_mcu_id(port)
+    if not mcu_id:
+        print()
+        continue
     print('MCU ID: {0}'.format(mcu_id), end = '')
-    #print('Name: {0}'.format(name))
     diff_current = diff.copy()
     if mcu_id in settings.keys():
         print(' - found')
@@ -173,6 +173,5 @@ while True:
         print('Press Enter to load DEFAULT diff', end='')
         input()
     upload_diff(diff_current, port)
-    print()
     print()
 
