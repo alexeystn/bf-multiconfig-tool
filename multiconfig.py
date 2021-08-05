@@ -3,6 +3,7 @@ import time
 import json
 import sys
 import os
+import random
 
 import serial.tools.list_ports
 
@@ -52,35 +53,52 @@ def get_mcu_id(port_name):
         return mcu_id
 
 
-def open_advanced(filename):
-    try:
-        f = open(filename, 'r')
-        return(f)
-    except:
-        print('Prepare "' + filename + '" before using this app')
-        f = open(filename, 'w')
-        f.close()
-        input()
-        sys.exit(0)
+def create_default_settings():
+    s = {}
+    s['path'] = 'C:/Users/Pilot/diff.txt'
+    s['setups'] = {}
+    names = ['White', 'Blue', 'Red']
+    for n in names:
+        mcu_id = '00'+'{0:.22f}'.format(random.random())[2:]
+        s['setups'][mcu_id] = []
+        s['setups'][mcu_id].append('set name = {0}'.format(n))
+        if n == 'Red':
+            s['setups'][mcu_id] += ['resource motor 1 A08',
+                                 'set ibata_scale = 120']
+    return s
 
 
 def load_settings():
+    settings_filename = 'settings.json'
     settings = {}
-    key = None
-    f = open_advanced('settings.txt')
-    for line in f:
-        if not (line.startswith('\t') or line.startswith(' ')):
-            key = line.strip()
-            settings[key] = []
-        elif len(line.strip()) > 0:
-            settings[key].append(line.strip())
-    f.close()
+    try:
+        f = open(settings_filename, 'r')
+    except:
+        print('Prepare "' + settings_filename + '" before using this app')
+        f = open(settings_filename, 'w')
+        settings = create_default_settings()
+        json.dump(settings, f, indent=2)
+        f.close()
+        input()
+        sys.exit(0)
+    try:
+        settings = json.load(f)
+    except Exception as exc:
+        print('Error: incorrect JSON file')
+        print(exc)
+        input()
+        sys.exit(0)
     return settings
 
 
-def load_diff():
+def load_diff(diff_filename):
     diff = []
-    f = open_advanced('diff.txt')
+    try:
+        f = open(diff_filename, 'r')
+    except:
+        print('"' + diff_filename + '" not found')
+        input()
+        sys.exit(0)
     for line in f:
         line = line.strip()
         if len(line) > 0 and not line.startswith('#'):
@@ -144,14 +162,14 @@ def clear():
 
 clear()
 settings = load_settings()
-diff = load_diff()
+diff = load_diff(settings['path'])
 custom_line = '############# CUSTOM SETTINGS #############'
 
 
 while True:
     port = wait_for_new_port()
     print('Device detected: {0}'.format(port))
-    print('Press Enter to read Name and ID', end='')
+    print('Press Enter to read ID', end='')
     input()
     mcu_id = get_mcu_id(port)
     if not mcu_id:
@@ -159,14 +177,14 @@ while True:
         continue
     print('MCU ID: {0}'.format(mcu_id), end = '')
     diff_current = diff.copy()
-    if mcu_id in settings.keys():
+    if mcu_id in settings['setups'].keys():
         print(' - found')
-        for s in settings[mcu_id]:
+        for s in settings['setups'][mcu_id]:
             print('   ', s)
         print('Press Enter to load CUSTOM diff', end='')
         input()
         diff_current.insert(-1, custom_line)
-        for s in settings[mcu_id]:
+        for s in settings['setups'][mcu_id]:
             diff_current.insert(-1, s)
     else:
         print(' - not found')
