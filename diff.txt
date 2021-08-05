@@ -1,0 +1,67 @@
+# diff all
+
+# version
+# Betaflight / STM32F7X2 (S7X2) 4.2.9 May 16 2021 / 22:43:13 (253d7d1b5) MSP API: 1.43
+# config: manufacturer_id: FOXE, board_name: FOXEERF722V2, version: 7b156dec, date: 2021-07-26T13:19:23Z
+
+# start the command batch
+batch start
+
+# reset configuration to default settings
+defaults nosave
+
+board_name FOXEERF722V2
+manufacturer_id FOXE
+mcu_id 0023002f3438510831353632
+signature 
+
+# name: AlexeyStn
+
+# feature
+feature -RX_PARALLEL_PWM
+feature RX_SERIAL
+
+# serial
+serial 1 64 115200 57600 0 115200
+
+# aux
+aux 0 0 0 1700 2100 0 0
+
+# master
+set serialrx_provider = CRSF
+set min_throttle = 1070
+set dshot_bidir = ON
+set use_unsynced_pwm = OFF
+set motor_pwm_protocol = DSHOT600
+set motor_pwm_rate = 480
+set osd_display_name_pos = 2058
+set osd_avg_cell_voltage_pos = 2444
+set gyro_1_align_yaw = 2700
+set name = AlexeyStn
+
+profile 0
+
+profile 1
+
+profile 2
+
+# restore original profile selection
+profile 0
+
+rateprofile 0
+
+rateprofile 1
+
+rateprofile 2
+
+rateprofile 3
+
+rateprofile 4
+
+rateprofile 5
+
+# restore original rateprofile selection
+rateprofile 0
+
+# save configuration
+save
