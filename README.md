@@ -43,4 +43,4 @@ File `parameters.json` will be automatically created on the first run.
 ## For developers:
 
 Executable is assembled with PyInstaller. You may run Python script `multiconfig.py` directly.
-
+`pyinstaller multiconfig.py --onefile`
