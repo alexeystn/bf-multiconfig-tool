@@ -4,13 +4,10 @@ import json
 import sys
 import os
 import random
-
 import serial.tools.list_ports
 
-ports_already_used = []
 
 def wait_for_new_port():
-    ports_current = set()
     ports_previous = set()
     ports_initialized = False
     print('Connect flight controller to your PC ', end='')
@@ -20,22 +17,28 @@ def wait_for_new_port():
         ports_previous = ports_current
         if any(ports_new) and ports_initialized:
             print()
-            return(list(ports_new)[0])
+            return list(ports_new)[0]
         ports_initialized = True
         print('.', end='')
         sys.stdout.flush()
         time.sleep(1)
-        
 
-def get_mcu_id(port_name):
-    mcu_id = None
-    name = None
+
+def open_serial_port(port):
     try:
         ser = serial.Serial(port, 115200, timeout=1)
-    except:
+    except Exception as exc:
+        print(exc)
         print('Cannot open serial port')
         return None
     else:
+        return ser
+
+
+def get_mcu_id(port):
+    mcu_id = None
+    ser = open_serial_port(port)
+    if ser:
         ser.write(b'#cli\r\n')
         time.sleep(0.5)
         ser.reset_input_buffer()
@@ -54,26 +57,26 @@ def get_mcu_id(port_name):
 
 
 def create_default_settings():
-    s = {}
+    s = dict()
     s['path'] = 'C:/Users/Pilot/diff.txt'
     s['setups'] = {}
-    names = ['White', 'Blue', 'Red']
+    names = ['One', 'Two', 'Three']
     for n in names:
         mcu_id = '00'+'{0:.22f}'.format(random.random())[2:]
         s['setups'][mcu_id] = []
-        s['setups'][mcu_id].append('set name = {0}'.format(n))
-        if n == 'Red':
+        s['setups'][mcu_id].append('set name = Drone {0}'.format(n))
+        if n == 'Three':
             s['setups'][mcu_id] += ['resource motor 1 A08',
-                                 'set ibata_scale = 120']
+                                    'set ibata_scale = 120']
     return s
 
 
 def load_settings():
     settings_filename = 'settings.json'
-    settings = {}
     try:
         f = open(settings_filename, 'r')
-    except:
+    except Exception as exc:
+        print(exc)
         print('Prepare "' + settings_filename + '" before using this app')
         f = open(settings_filename, 'w')
         settings = create_default_settings()
@@ -95,7 +98,8 @@ def load_diff(diff_filename):
     diff = []
     try:
         f = open(diff_filename, 'r')
-    except:
+    except Exception as exc:
+        print(exc)
         print('"' + diff_filename + '" not found')
         input()
         sys.exit(0)
@@ -119,7 +123,7 @@ def get_line_timeout(ser):
     t = time.time() + 1.0
     while time.time() < t:
         try:
-            get_line()
+            get_line(ser)
         except:
             break
 
@@ -132,17 +136,14 @@ def get_line(ser):
     s = s.decode()
     s = s.replace('\r\n\r\n', '\r\n')
     if not os.name == 'nt':
-        s = s.replace('\r','')
+        s = s.replace('\r', '')
     print(s, end='')
     time.sleep(0.01)
 
 
 def upload_diff(diff, port):
-    try:
-        ser = serial.Serial(port, 115200, timeout=1)
-    except:
-        print('Cannot open serial port')
-    else:
+    ser = open_serial_port(port)
+    if ser:
         ser.write(b'#cli\r\n')
         time.sleep(1)
         ser.reset_input_buffer()
@@ -153,43 +154,45 @@ def upload_diff(diff, port):
         print()
 
 
-def clear():
-    if os.name == 'nt': # for windows
+def clear_screen():
+    if os.name == 'nt':  # windows
         os.system('cls')
-    else: # for mac and linux(here, os.name is 'posix')
+    else:  # mac and linux (os.name is 'posix')
         os.system('clear')
 
 
-clear()
-settings = load_settings()
-diff = load_diff(settings['path'])
-custom_line = '############# CUSTOM SETTINGS #############'
+def main():
+    clear_screen()
+    settings = load_settings()
+    diff = load_diff(settings['path'])
+    custom_line = '############# CUSTOM SETTINGS #############'
 
-
-while True:
-    port = wait_for_new_port()
-    print('Device detected: {0}'.format(port))
-    print('Press Enter to read ID', end='')
-    input()
-    mcu_id = get_mcu_id(port)
-    if not mcu_id:
+    while True:
+        port = wait_for_new_port()
+        print('Device detected: {0}'.format(port))
+        print('Press Enter to read ID', end='')
+        input()
+        mcu_id = get_mcu_id(port)
+        if not mcu_id:
+            print()
+            continue
+        print('MCU ID: {0}'.format(mcu_id), end='')
+        diff_current = diff.copy()
+        if mcu_id in settings['setups'].keys():
+            print(' - found')
+            for s in settings['setups'][mcu_id]:
+                print('   ', s)
+            print('Press Enter to load CUSTOM diff', end='')
+            input()
+            diff_current.insert(-1, custom_line)
+            for s in settings['setups'][mcu_id]:
+                diff_current.insert(-1, s)
+        else:
+            print(' - not found')
+            print('Press Enter to load DEFAULT diff', end='')
+            input()
+        upload_diff(diff_current, port)
         print()
-        continue
-    print('MCU ID: {0}'.format(mcu_id), end = '')
-    diff_current = diff.copy()
-    if mcu_id in settings['setups'].keys():
-        print(' - found')
-        for s in settings['setups'][mcu_id]:
-            print('   ', s)
-        print('Press Enter to load CUSTOM diff', end='')
-        input()
-        diff_current.insert(-1, custom_line)
-        for s in settings['setups'][mcu_id]:
-            diff_current.insert(-1, s)
-    else:
-        print(' - not found')
-        print('Press Enter to load DEFAULT diff', end='')
-        input()
-    upload_diff(diff_current, port)
-    print()
 
+
+main()
